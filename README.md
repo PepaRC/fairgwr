@@ -5,7 +5,7 @@ An R package adding fairness constraints to the Geographically Weighted Regressi
 ## Installing
 Using the `install_github` function from the `remotes` package:
 ```
-remotes::install_github("https://github.com/jimontero4/fairgwr")
+remotes::install_github("https://github.com/PepaRC/fairgwr")
 ```
 
 ## Basic usage
@@ -74,5 +74,8 @@ ggplot(data = mydata.fvalues,
 
 More plots are shown in [samples/fairness_plot.R](samples/fairness_plot.R).
 
+<!--
 ### k-fold Cross-validated GWR model
+
 Functions automating the assignment of train/test subsets and adjusting a k-fold CV GWR are also available. See [samples/cv.R](samples/cv.R) for a complete example.
+-->
