@@ -1,0 +1,10 @@
+This folder contains code samples showing the basic use of the fairgwr package.
+
+It is encouraged to familiarize yourself first with the main "fairgwr_main.R"
+routine, as this is the one that will generate the results used in virtually
+every other routine.
+
+Also included is the "autogwr" routine, showcasing an assistant automating
+the generation of results for a given dataset. This can be used from R
+with source("autogwr.R") or, if running Windows, directly from the autogwr.bat
+file.

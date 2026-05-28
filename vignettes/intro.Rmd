@@ -1,0 +1,260 @@
+---
+title: "fairgwr: introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{fairgwr: introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Abstract
+This vignette shows the basic usage of the `fairgwr` package.
+
+
+# Introduction
+Loading our package:
+
+```{r setup}
+library(fairgwr)
+```
+
+## Dataset
+For this example we'll use the included `camden` dataset given its small size.
+
+```{r}
+#data(camden)
+data(sevilla)
+```
+
+If needed, the preprocessing routine can generate datasets for any town in
+the Spanish region of Andalusia. This can be checked in its own vignette:
+
+```{r eval=FALSE}
+vignette("preprocessing", package = "fairgwr")
+```
+
+Alternatively, an user-prepared dataset can be used given that the following
+are provided:
+
+* `x`: an $X_{(n\times p+1)}$ design matrix, where $\boldsymbol{1}$ is the first column. If
+  $\beta_0$ is not needed, an $X_{(n\times p)}$ matrix can be provided
+* `y`: an $Y_{(n\times 1)}$ matrix containing the observed values of the response
+  variable
+* `d`: a $D_{(n \times n)}$ distance matrix
+* (optional) a `geometry` object containing the coordinates of every row in $X$,
+  usually as an `sfc` object. Only needed if we plan on plotting the results
+
+# Running
+
+## Determine the sensitive variable
+In the cases we don't have a explicitly defined variable to work with, we can
+get the $u(x_j,y)$ measure of variation for every variable like:
+
+```{r}
+#databias(camden$x, camden$y)
+databias(sevilla$x, sevilla$y)
+```
+
+For `camden`, `elder_ppl` (i.e. the $3$rd column) is the variable with the
+highest percentage of variation and so will be our sensitive variable. Usually,
+the value splitting the sensitive and non-sensitive classes is the median for 
+the variable, but any other can be chosen if we so desire:
+
+```{r}
+#camden$split_col <- 3
+#camden$split_val <- median(camden$x[, camden$split_col])
+sevilla$split_col <- 4
+```
+
+A `classes` object will be necessary moving forward. This is just a list storing
+which elements of $X$ belong to each class, which will come in handy later. This
+can be done easily:
+
+```{r}
+sevilla$classes <- fair.classes(x = sevilla$x,
+                                y = sevilla$y,
+                                d = sevilla$d,
+                                select_col = sevilla$split_col)
+names(sevilla$classes)
+```
+
+## Choosing a fairness level
+In our problem, we want to reduce the difference between the means of the
+predicted values in the sensitive class minus the ones in the non-sensitive
+class. This can be expressed as:
+$$
+    g\left(\boldsymbol{\beta}\right)=
+     \frac{1}{card\left(S\right)}X_{S}\hat{\beta}_{S} -
+     \frac{1}{card\left(S^C\right)}X_{S^C}\hat{\beta}_{S^C}
+$$
+where
+$$
+    S=\text{subset of elements in the sensitive class}
+$$
+briefly, this can be written:
+$$\left\lvert g\left(\boldsymbol{\beta}\right)\right\rvert\leq\varepsilon$$
+This will be one of the parameters driving the optimization problem. As such,
+we can obtain the reference $\varepsilon$ value, that is, the current bias
+present in the data:
+
+```{r}
+#fair.epsilon(camden$classes)
+fair.epsilon(sevilla$classes)
+```
+
+Even though the value of $\varepsilon$ is automatically calculated by the `gwr`
+routines, it is useful to store the unfairness reduction percentage we want for
+futures use:
+
+```{r}
+# 10% reduction
+fair.perc <- 0.1
+# store epsilon value
+#e10 <- fair.epsilon(camden$classes, fair.perc)
+e10 <- fair.epsilon(sevilla$classes, fair.perc)
+e10
+```
+
+## Calculate the optimal bandwidth
+The first part of the optimization problem is the one in which the optimal
+bandwidth (or $h$) is chosen. This is done by minimizing the CV-score function:
+$$
+\begin{split}
+    CVSS(h)&=\sum_i \left( y_i - \check{y}_i(h)\right)^2 \\
+    s.t.\quad&\left\lvert g(\boldsymbol{\beta}(h))\right\rvert\leq\varepsilon
+\end{split}
+$$
+In our case, when running this problem, we also want the optimal $h$ to meet the
+fairness requirement we defined earlier. How to do this:
+
+```{r}
+sevilla$h <- gwr.h_sel(x = sevilla$xnorm,
+                       y = sevilla$y,
+                       d = sevilla$d,
+                       wfun = wmat.bisquare,
+                       fair.perc = fair.perc,
+                       classes = sevilla$classes,
+                       constrained = TRUE,
+                       verbose = FALSE)$h
+```
+
+In this step, a _weighting function_ is used. In our case, bisquare weights
+(as `wmat.bisquare`) are used:
+$$w_{ij}=\begin{cases}
+    \left( 1-(d_{ij}/h)^2\right)^2 & \text{if } d_{ij} < h, \\
+    0 & \text{otherwise.}
+\end{cases}$$
+Gaussian weights are also available under the `wmat.gauss` function. If needed,
+any other weighting function can be easily adapted.
+
+## Obtaining GWR results
+The results of running a constrained geographically weighted regression can
+be obtained as:
+
+```{r}
+results <- gwr(x = sevilla$xnorm,
+               y = sevilla$y,
+               d = sevilla$d,
+               h = sevilla$h,
+               wfun = wmat.bisquare,
+               fair.perc = fair.perc,
+               classes = sevilla$classes,
+               constrained = TRUE)
+```
+
+Which will run the "global" GWR solver. Depending on the machine, this can take
+a few minutes.
+
+### Constrained solution
+Provided that we are running `gwr` with `constrained = TRUE`, the constrained
+solution will reflect our requested unfairness reduction. The `solution` and
+`pred` attributes will give us the $\boldsymbol{\beta}$ matrix and the estimated
+$\hat{y}$ values, respectively:
+
+```{r}
+head(results$solution)
+head(results$pred)
+```
+
+It can be shown that this solution matches the fairness level we established
+earlier using the $u$ measure of fairness:
+```{r}
+u10 <- fair.u(x = sevilla$xnorm,
+              classes = sevilla$classes,
+              betas = results$solution)
+u10
+e10
+```
+
+### Unconstrained solution
+The unconstrained solution (i.e. regular GWR) is also returned when running
+`gwr`. See the `unconstrained.solution` and `unconstrained.pred`, returning
+$\boldsymbol{\beta}$ and $\hat{y}$ for the unconstrained problem.
+
+```{r}
+head(results$unconstrained.solution)
+head(results$unconstrained.pred)
+```
+
+This behavior can also be achived when running `gwr` with `constrained=FALSE`.
+In this case, none of `classes` and `fair.perc` are needed.
+
+## Plotting
+Once `gwr` is done running, we can generate maps to visualize our results if
+we so desire. The first thing to do is generate a `basemap`, which is just
+a map for the contour of our region of interest. This can be done as:
+
+```{r, out.width="80%", fig.align = 'center', fig.retina = 3}
+sevilla$basemap <- gwr.basemap(sevilla$geometry)
+sevilla$basemap
+```
+
+The most interesting and useful map is probably the one for the predicted
+values:
+
+```{r, out.width="80%", fig.align = 'center', fig.retina = 3}
+sevilla$predmap <- gwr.predmap(basemap = sevilla$basemap,
+                               geometry = sevilla$geometry,
+                               y = results$pred,
+                               color.scales = list(highs = "Greens",
+                                                  lows = "YlOrBr"),
+                               color.rev = TRUE) +
+                      ggplot2::theme(legend.position = "none")
+sevilla$predmap
+```
+
+Which can be compared with the original $y$ values:
+
+```{r, out.width="80%", fig.align = 'center', fig.retina = 3}
+gwr.predmap(basemap = sevilla$basemap,
+            geometry = sevilla$geometry,
+            y = sevilla$y,
+            color.scales = list(highs = "Greens",
+                               lows = "YlOrBr"),
+            color.rev = TRUE) +
+    ggplot2::theme(legend.position = "none")
+```
+
+Maps for the values of the $\boldsymbol{\beta}$ matrix can also be generated,
+for the case we want visualize their variation based on where they are located:
+
+```{r, out.width="80%", fig.align = 'center', fig.retina = 3}
+sevilla$betamaps <- gwr.betamaps(basemap = sevilla$basemap,
+                                 geometry = sevilla$geometry,
+                                 betas = results$solution)
+# arrange plots in grid, removing legends and axes
+gridExtra::grid.arrange(
+    sevilla$betamaps[[1]] + ggplot2::theme_void() + ggplot2::theme(legend.position = "none"),
+    sevilla$betamaps[[2]] + ggplot2::theme_void() + ggplot2::theme(legend.position = "none"),
+    sevilla$betamaps[[3]] + ggplot2::theme_void() + ggplot2::theme(legend.position = "none"),
+    sevilla$betamaps[[4]] + ggplot2::theme_void() + ggplot2::theme(legend.position = "none"),
+    ncol = 2
+)
+```

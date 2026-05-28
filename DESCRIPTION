@@ -1,0 +1,24 @@
+Package: fairgwr
+Title: Fair Geographically Weighted Regression
+Version: 0.3
+Date: 2024-03-20
+Authors@R: c(
+             person("Pepa", "Ramirez-Cobo",
+                    role = c("aut", "cph"),
+                    email = "pepa.ramirez@uca.es",
+                    comment = c(ORCID = "0000-0002-5883-9795")),
+             person("Ismael", "Montero",
+                    role = c("aut", "cre"),
+                    email = "joseismael.montero@uca.es"))
+Depends: R (>= 4.0.0)
+Imports: stats, utils, sf, quadprog, forcats, ggplot2, mvtnorm, RColorBrewer
+Suggests: 
+    knitr,
+    rmarkdown
+Description:
+License: use_gpl_license()
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+LazyData: true
+VignetteBuilder: knitr
