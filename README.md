@@ -32,9 +32,9 @@ Urban accessibility datasets compatible with the package can be generated using 
 
 Alternatively, user-provided datasets can also be employed, provided that the following components are available:
 
-- An \(\mathbf{X}_{(n\times (p+1))}\) design matrix, where the first column corresponds to a vector of ones.
-- A \(\mathbf{Y}_{(n\times 1)}\) vector containing the observed values of the response variable.
-- A \(\mathbf{D}_{(n\times n)}\) spatial distance matrix between observations.
+- An $\mathbf{X}_{(n\times (p+1))}$ design matrix, where the first column corresponds to a vector of ones.
+- A $\mathbf{Y}_{(n\times 1)}$ vector containing the observed values of the response variable.
+- A $\mathbf{D}_{(n\times n)}$ spatial distance matrix between observations.
 - Geometry information compatible with the `sf` R package.
 
 ### Fair GWR model fitting
